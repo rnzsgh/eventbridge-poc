@@ -1,6 +1,7 @@
 
 REGION ?= us-east-1
 PROFILE ?= test
+ENV_NAME ?= dev
 
 .PHONY: create-stack
 create-stack:
