@@ -1,0 +1,183 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: Rekognition POC
+
+Parameters:
+
+  EnvName:
+    Type: String
+    Description: The environment name
+    Default: dev
+
+
+Resources:
+
+  # EventBridge ################################################################
+
+  ApplicationEventBus:
+    Type: AWS::Events::EventBus
+    Properties:
+      Name: !Sub app-bus-${EnvName}
+
+  InstigatorEventBridgeRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub instigator-rule-${EnvName}
+      ScheduleExpression: rate(1 minute)
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt InstigatorLambda.Arn
+          Id: !Sub instigator-rule-target-${EnvName}
+
+  EventBusHandlerOneRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub event-bus-handler-one-rule-${EnvName}
+      EventBusName: !Ref ApplicationEventBus
+      EventPattern: { "detail": {  "type": [ "One" ] } }
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt EventBusHandlerOneLambda.Arn
+          Id: !Sub event-bus-handler-one-rule-target-${EnvName}
+
+  # EventBusHandlerOne #########################################################
+
+  EventBusHandlerOneLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt EventBusHandlerOneLambda.Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt EventBusHandlerOneRule.Arn
+
+  EventBusHandlerOneLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        ZipFile: |
+          def handler(event, context):
+              return True
+      FunctionName: !Sub event-bus-handler-one-${EnvName}
+      Handler: index.handler
+      MemorySize: 128
+      Role: !GetAtt EventBusHandlerLambdaIamRole.Arn
+      Runtime: python3.8
+      Timeout: 60
+
+  # InstigatorLambda ###########################################################
+
+  InstigatorEventBridgeRuleLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt InstigatorLambda.Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt InstigatorEventBridgeRule.Arn
+
+  InstigatorLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub instigator-${EnvName}
+      Code:
+        ZipFile: |
+          import json, boto3, os, random
+          client = boto3.client('events')
+          events = [ 'One', 'Two', 'Three' ]
+          def handler(event, context):
+            payload = {
+              'Source': context.invoked_function_arn,
+              'DetailType': 'Instigator',
+              'Detail': json.dumps({
+                'type': events[random.randint(0, 2)],
+                  'eventHistory': []
+                }),
+              'EventBusName': os.environ['BUS_ARN']
+            }
+            return client.put_events(Entries=[payload])
+      Environment:
+        Variables:
+          BUS_ARN: !GetAtt ApplicationEventBus.Arn
+      Handler: index.handler
+      MemorySize: 128
+      Role: !GetAtt InstigatorLambdaIamRole.Arn
+      Runtime: python3.8
+      Timeout: 60
+
+  # IAM ########################################################################
+
+  EventBusHandlerLambdaIamRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub event-bus-handler-lambda-${EnvName}
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Ref ApplicationEventBusPutIamPolicy
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Tags:
+        - Key: EnvName
+          Value: !Ref EnvName
+
+  InstigatorLambdaIamRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub instigator-lambda-${EnvName}
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Ref ApplicationEventBusPutIamPolicy
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Tags:
+        - Key: EnvName
+          Value: !Ref EnvName
+
+  ApplicationEventBusPutIamPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub app-eventbus-put-events-${EnvName}
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Resource: !GetAtt ApplicationEventBus.Arn
+            Effect: Allow
+            Action: events:PutEvents
+
+
+Outputs:
+
+  ApplicationEventBusName:
+    Value: !Ref ApplicationEventBus
+    Export:
+      Name: !Sub ${AWS::StackName}-ApplicationEventBusName
+
+  ApplicationEventBusArn:
+    Value: !GetAtt ApplicationEventBus.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-ApplicationEventBusArn
+
+  InstigatorEventBridgeRuleArn:
+    Value: !GetAtt InstigatorEventBridgeRule.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-InstigatorEventBridgeRuleArn
+
+  ApplicationEventBusPutIamPolicyArn:
+    Value: !Ref ApplicationEventBusPutIamPolicy
+    Export:
+      Name: !Sub ${AWS::StackName}-ApplicationEventBusPutIamPolicyArn
+
+
+
+
