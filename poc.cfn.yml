@@ -84,7 +84,7 @@ Resources:
           client = boto3.client('events')
           def handler(event, context):
             history = event['detail']['eventHistory']
-            print history
+            print(history)
             if len(history) > int(os.environ['MAX_HOPS']):
               return 0
             history.append(os.environ['NAME'])
@@ -130,7 +130,7 @@ Resources:
           client = boto3.client('events')
           def handler(event, context):
             history = event['detail']['eventHistory']
-            print history
+            print(history)
             if len(history) > int(os.environ['MAX_HOPS']):
               return 0
             history.append(os.environ['NAME'])
@@ -176,7 +176,7 @@ Resources:
           client = boto3.client('events')
           def handler(event, context):
             history = event['detail']['eventHistory']
-            print history
+            print(history)
             if len(history) > int(os.environ['MAX_HOPS']):
               return 0
             history.append(os.environ['NAME'])
