@@ -41,6 +41,28 @@ Resources:
         - Arn: !GetAtt EventBusHandlerOneLambda.Arn
           Id: !Sub event-bus-handler-one-rule-target-${EnvName}
 
+  EventBusHandlerTwoRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub event-bus-handler-two-rule-${EnvName}
+      EventBusName: !Ref ApplicationEventBus
+      EventPattern: { "detail": {  "type": [ "Two" ] } }
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt EventBusHandlerTwoLambda.Arn
+          Id: !Sub event-bus-handler-two-rule-target-${EnvName}
+
+  EventBusHandlerThreeRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub event-bus-handler-three-rule-${EnvName}
+      EventBusName: !Ref ApplicationEventBus
+      EventPattern: { "detail": {  "type": [ "Three" ] } }
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt EventBusHandlerThreeLambda.Arn
+          Id: !Sub event-bus-handler-three-rule-target-${EnvName}
+
   # EventBusHandlerOne #########################################################
 
   EventBusHandlerOneLambdaPermission:
@@ -54,11 +76,125 @@ Resources:
   EventBusHandlerOneLambda:
     Type: AWS::Lambda::Function
     Properties:
+      FunctionName: !Sub event-bus-handler-one-${EnvName}
       Code:
         ZipFile: |
+          import json, boto3, os, random
+          events = [ 'One', 'Two', 'Three' ]
+          client = boto3.client('events')
           def handler(event, context):
-              return True
-      FunctionName: !Sub event-bus-handler-one-${EnvName}
+            history = event['detail']['eventHistory']
+            print history
+            if len(history) > int(os.environ['MAX_HOPS']):
+              return 0
+            history.append(os.environ['NAME'])
+            payload = {
+              'Source': context.invoked_function_arn,
+              'DetailType': os.environ['NAME'],
+              'Detail': json.dumps({
+                'type': events[random.randint(0, 2)],
+                'eventHistory': history
+                }),
+              'EventBusName': os.environ['BUS_ARN']
+            }
+            return client.put_events(Entries=[payload])
+      Environment:
+        Variables:
+          BUS_ARN: !GetAtt ApplicationEventBus.Arn
+          NAME: One
+          MAX_HOPS: 3
+      Handler: index.handler
+      MemorySize: 128
+      Role: !GetAtt EventBusHandlerLambdaIamRole.Arn
+      Runtime: python3.8
+      Timeout: 60
+
+  # EventBusHandlerTwo #########################################################
+
+  EventBusHandlerTwoLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt EventBusHandlerTwoLambda.Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt EventBusHandlerTwoRule.Arn
+
+  EventBusHandlerTwoLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub event-bus-handler-two-${EnvName}
+      Code:
+        ZipFile: |
+          import json, boto3, os, random
+          events = [ 'One', 'Two', 'Three' ]
+          client = boto3.client('events')
+          def handler(event, context):
+            history = event['detail']['eventHistory']
+            print history
+            if len(history) > int(os.environ['MAX_HOPS']):
+              return 0
+            history.append(os.environ['NAME'])
+            payload = {
+              'Source': context.invoked_function_arn,
+              'DetailType': os.environ['NAME'],
+              'Detail': json.dumps({
+                'type': events[random.randint(0, 2)],
+                'eventHistory': history
+                }),
+              'EventBusName': os.environ['BUS_ARN']
+            }
+            return client.put_events(Entries=[payload])
+      Environment:
+        Variables:
+          BUS_ARN: !GetAtt ApplicationEventBus.Arn
+          NAME: Two
+          MAX_HOPS: 3
+      Handler: index.handler
+      MemorySize: 128
+      Role: !GetAtt EventBusHandlerLambdaIamRole.Arn
+      Runtime: python3.8
+      Timeout: 60
+
+  # EventBusHandlerThree #######################################################
+
+  EventBusHandlerThreeLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt EventBusHandlerThreeLambda.Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt EventBusHandlerThreeRule.Arn
+
+  EventBusHandlerThreeLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub event-bus-handler-three-${EnvName}
+      Code:
+        ZipFile: |
+          import json, boto3, os, random
+          events = [ 'One', 'Two', 'Three' ]
+          client = boto3.client('events')
+          def handler(event, context):
+            history = event['detail']['eventHistory']
+            print history
+            if len(history) > int(os.environ['MAX_HOPS']):
+              return 0
+            history.append(os.environ['NAME'])
+            payload = {
+              'Source': context.invoked_function_arn,
+              'DetailType': os.environ['NAME'],
+              'Detail': json.dumps({
+                'type': events[random.randint(0, 2)],
+                'eventHistory': history
+                }),
+              'EventBusName': os.environ['BUS_ARN']
+            }
+            return client.put_events(Entries=[payload])
+      Environment:
+        Variables:
+          BUS_ARN: !GetAtt ApplicationEventBus.Arn
+          NAME: Three
+          MAX_HOPS: 3
       Handler: index.handler
       MemorySize: 128
       Role: !GetAtt EventBusHandlerLambdaIamRole.Arn
