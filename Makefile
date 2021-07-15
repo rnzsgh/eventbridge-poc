@@ -26,4 +26,4 @@ update-stack:
   --stack-name eventbridge-poc-$(ENV_NAME) \
   --region $(REGION) \
   --capabilities CAPABILITY_NAMED_IAM \
-  --template-body file://foundation.cfn.yml
+  --template-body file://poc.cfn.yml
