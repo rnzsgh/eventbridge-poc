@@ -85,7 +85,7 @@ Resources:
           def handler(event, context):
             history = event['detail']['eventHistory']
             print(history)
-            if len(history) > int(os.environ['MAX_HOPS']):
+            if len(history) >= int(os.environ['MAX_HOPS']):
               return 0
             history.append(os.environ['NAME'])
             payload = {
@@ -131,7 +131,7 @@ Resources:
           def handler(event, context):
             history = event['detail']['eventHistory']
             print(history)
-            if len(history) > int(os.environ['MAX_HOPS']):
+            if len(history) >= int(os.environ['MAX_HOPS']):
               return 0
             history.append(os.environ['NAME'])
             payload = {
@@ -177,7 +177,7 @@ Resources:
           def handler(event, context):
             history = event['detail']['eventHistory']
             print(history)
-            if len(history) > int(os.environ['MAX_HOPS']):
+            if len(history) >= int(os.environ['MAX_HOPS']):
               return 0
             history.append(os.environ['NAME'])
             payload = {
